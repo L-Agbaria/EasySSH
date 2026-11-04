@@ -1,1 +1,5 @@
 __pycache__
+/data/
+!/data/clusters/template
+!/data/identities/hi.txt
+!/data/tutorials

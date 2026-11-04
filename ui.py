@@ -143,10 +143,62 @@ class MarkdownView(tk.Text):
         self.insert("end", "\n")
 
 
+class ScrollFrame(ttk.Frame):
+    """Frame with vertical scrollbar. Put widgets in .inner. Bar show only if needed."""
+
+    def __init__(self, master):
+        super().__init__(master)
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        self.bar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self._on_scroll)
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.inner = ttk.Frame(self.canvas)
+        self._win = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        self.inner.bind("<Configure>", self._fit)
+        self.canvas.bind("<Configure>", self._fit)
+        # Wheel works only while mouse is over this area
+        self.bind("<Enter>", self._bind_wheel)
+        self.bind("<Leave>", self._unbind_wheel)
+
+    def _fit(self, _=None):
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        need = self.inner.winfo_reqheight()
+        # Fill the canvas when roomy, grow past it when tight
+        self.canvas.itemconfigure(self._win, width=w, height=max(need, h))
+        self.canvas.configure(scrollregion=(0, 0, w, max(need, h)))
+
+    def _on_scroll(self, lo, hi):
+        self.bar.set(lo, hi)
+        if float(lo) <= 0.0 and float(hi) >= 1.0:
+            self.bar.pack_forget()
+        elif not self.bar.winfo_ismapped():
+            self.bar.pack(side="right", fill="y")
+
+    def _bind_wheel(self, _=None):
+        self.bind_all("<MouseWheel>", self._wheel)  # Windows, macOS
+        self.bind_all("<Button-4>", self._wheel)  # Linux up
+        self.bind_all("<Button-5>", self._wheel)  # Linux down
+
+    def _unbind_wheel(self, _=None):
+        self.unbind_all("<MouseWheel>")
+        self.unbind_all("<Button-4>")
+        self.unbind_all("<Button-5>")
+
+    def _wheel(self, e):
+        if self.bar.winfo_ismapped():
+            if e.num == 4:
+                step = -1
+            elif e.num == 5:
+                step = 1
+            else:
+                step = -1 if e.delta > 0 else 1
+            self.canvas.yview_scroll(step, "units")
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("easyssh")
+        self.title("EasySSH")
         self.geometry("1020x680")
         self.minsize(860, 540)
         self.clusters_dir = DATA / "clusters"
@@ -190,8 +242,10 @@ class App(tk.Tk):
         pane.add(right, weight=3)
 
         self.info = tk.StringVar(value="Pick a server on the left.")
-        conn = ttk.Frame(right, padding=8)
-        right.add(conn, text="Connect")
+        conn_scroll = ScrollFrame(right)  # Connect tab scrolls when window is small
+        conn = conn_scroll.inner
+        conn.configure(padding=8)
+        right.add(conn_scroll, text="Connect")
         ttk.Label(conn, textvariable=self.info, justify="left",
                   font=("TkDefaultFont", 10, "bold")).pack(anchor="w")
 
@@ -292,13 +346,25 @@ class App(tk.Tk):
 
         # output
         out = ttk.LabelFrame(conn, text="Command", padding=6)
-        out.pack(fill="both", expand=True, pady=6)
-        self.output = tk.Text(out, height=4, wrap="word", font=("TkFixedFont", 10))
-        self.output.pack(fill="both", expand=True)
+        out.pack(fill="x", pady=6)
+        self.output = tk.Text(out, height=2, wrap="word", font=("TkFixedFont", 10))
+        self.output.pack(fill="x")
         bar = ttk.Frame(out)
         bar.pack(fill="x", pady=(6, 0))
         ttk.Button(bar, text="Generate", command=self.generate).pack(side="left")
         ttk.Button(bar, text="Copy", command=self.copy).pack(side="left", padx=4)
+
+        # descriptions (cluster, category, server)
+        desc = ttk.LabelFrame(conn, text="Description", padding=6)
+        desc.pack(fill="both", expand=True, pady=(0, 6))
+        self.desc = tk.Text(desc, height=5, wrap="word", state="disabled", relief="flat",
+                            font=("TkDefaultFont", 10))
+        dsb = ttk.Scrollbar(desc, command=self.desc.yview)
+        self.desc.configure(yscrollcommand=dsb.set)
+        dsb.pack(side="right", fill="y")
+        self.desc.pack(fill="both", expand=True)
+        self.desc.tag_configure("title", font=("TkDefaultFont", 10, "bold"))
+        self._set_desc([])
 
         # identities tab
         idt = ttk.Frame(right, padding=8)
@@ -422,7 +488,23 @@ class App(tk.Tk):
             via = (f"via {s.connect_through[0]} / {s.connect_through[1]}"
                    if s.connect_through != ("", "") else "direct")
             self.info.set(f"{s.name}\n{s.hostname}:{s.port}  ({via})")
+            cat = self.cur_cluster.categories.get(s.category_id)
+            self._set_desc([
+                ("Cluster", self.cur_cluster.name, self.cur_cluster.description),
+                ("Category", cat.name if cat else s.category_id, cat.description if cat else ""),
+                ("Server", s.name, s.description),
+            ])
             self.generate()
+
+    def _set_desc(self, items):
+        self.desc.config(state="normal")
+        self.desc.delete("1.0", "end")
+        if not items:
+            self.desc.insert("end", "Pick a server to see its description.")
+        for kind, name, text in items:
+            self.desc.insert("end", f"{kind}: {name}\n", "title")
+            self.desc.insert("end", f"{(text or '').strip() or 'No description.'}\n\n")
+        self.desc.config(state="disabled")
 
     def pick_clusters(self):
         d = filedialog.askdirectory(initialdir=self.clusters_dir if self.clusters_dir.exists() else None)
@@ -689,3 +771,4 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     App().mainloop()
+    

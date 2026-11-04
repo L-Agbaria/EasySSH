@@ -3,6 +3,22 @@ from identity import Identity
 from server import Server, Cluster
 
 
+def generate_jump(
+        username: str,
+        server: Server,
+        cluster: Cluster
+) -> str:
+    flag = "-J "
+    max_depth, depth = 4, 0
+    while server.connect_through != ("", ""):
+        if max_depth < depth:
+            raise RecursionError("Too many jump connections.")
+        depth += 1
+        server = cluster[server.connect_through]
+        flag += f"{username}{server.hostname},"
+    return flag[:-1]
+    
+
 def generate_ssh(
         server: Server,
         cluster: Cluster| None = None,
@@ -24,6 +40,9 @@ def generate_ssh(
 
     # Populate options
     options = []
+    # Server port
+    if server.port != 22:
+        options.append(f"-p {server.port}")
     # Identity file
     if identity is not None:
         if not isinstance(identity, Identity):
@@ -33,7 +52,7 @@ def generate_ssh(
     if server.connect_through != ("", ""):
         if cluster is None or not isinstance(cluster, Cluster):
             return "Error during proxy jumping: Cluster object must be provided!"
-        options.append(f"-J {username}{cluster[server.connect_through].hostname}")
+        options.append(generate_jump(username, server, cluster))
     # Local port forwarding
     if local_forwarding is not None:
         if not (isinstance(local_forwarding[0], int) and isinstance(local_forwarding[1], int)):
@@ -97,6 +116,9 @@ def generate_scp(
 
     # Populate options
     options = []
+    # Server port
+    if server.port != 22:
+        options.append(f"-P {server.port}")
     # Identity file
     if identity is not None:
         if not isinstance(identity, Identity):
