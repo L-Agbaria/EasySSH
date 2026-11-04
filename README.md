@@ -89,6 +89,13 @@ The folder name doesn't really matter, however making it easy to relate would be
     },
 
     "categories": {
+        "gateway.json": {
+            "id": "gateway",
+            "name": "Gateways",
+            "description": "Remote entry points.",
+            "connect_through": null,
+            "subdomain": false
+        },
         "category.json": {
             "id": "cat",
             "name": "Category name",
@@ -98,13 +105,6 @@ The folder name doesn't really matter, however making it easy to relate would be
                 "server_id": "main"
             },
             "subdomain": true
-        },
-        "gateway.json": {
-            "id": "gateway",
-            "name": "Gateways",
-            "description": "Remote entry points.",
-            "connect_through": null,
-            "subdomain": false
         }
     }
 }

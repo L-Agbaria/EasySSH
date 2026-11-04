@@ -1,0 +1,13 @@
+{
+    "id": "cat",
+    "name": "Category name",
+    "servers": [
+        {
+            "id": "node1",
+            "name": "GPU Server",
+            "hostname": "gpu.node",
+            "port": 22,
+            "description": "AI node."
+        }
+    ]
+}

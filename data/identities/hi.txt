@@ -1,0 +1,3 @@
+NEVER SHARE YOUR PRIVATE KEYS!
+
+Even if they are never used.

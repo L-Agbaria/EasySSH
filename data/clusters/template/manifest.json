@@ -1,0 +1,32 @@
+{
+    "id": "clusterID",
+    "name": "Cluster name",
+    "hostname": "example.com",
+    "description": "Introduction about the cluster.",
+    "ssh_key_policy": {
+        "allowed_algorithm": [
+            "ed25519"
+        ],
+        "preferred_algorithm": "ed25519"
+    },
+
+    "categories": {
+        "gateway.json": {
+            "id": "gateway",
+            "name": "Gateways",
+            "description": "Remote entry points.",
+            "connect_through": null,
+            "subdomain": false
+        },
+        "category.json": {
+            "id": "cat",
+            "name": "Category name",
+            "description": "Category purpose.",
+            "connect_through": {
+                "category_id": "gateway",
+                "server_id": "main"
+            },
+            "subdomain": true
+        }
+    }
+}

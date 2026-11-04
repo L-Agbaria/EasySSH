@@ -1,0 +1,13 @@
+{
+    "id": "gateway",
+    "name": "Entry points",
+    "servers": [
+        {
+            "id": "main",
+            "name": "Hello there",
+            "hostname": "entry.local",
+            "port": 22,
+            "description": "Welcome"
+        }
+    ]
+}
