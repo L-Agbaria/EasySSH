@@ -641,12 +641,15 @@ class App(tk.Tk):
                                      else "Add at least one source")
                 # Server paths always use "/", so never run them through Path
                 # (on Windows Path would turn them into backslashes).
+                dest_text = self.dest_vars[self.direction.get()].get().strip()
                 if download:
                     srcs = [PurePosixPath(s) for s in raw]
-                    dest = Path(self.dest_vars["download"].get() or Path.home())
+                    dest = Path(dest_text).expanduser() if dest_text else Path.home()
                 else:
-                    srcs = [Path(s) for s in raw]
-                    dest = PurePosixPath(self.dest_vars["upload"].get() or "~/")
+                    if not dest_text:
+                        raise ValueError("Give a destination on the server (e.g. ~/)")
+                    srcs = [Path(s).expanduser() for s in raw]
+                    dest = PurePosixPath(dest_text)
                 cmd = generate_scp(
                     **common,
                     sources=srcs,

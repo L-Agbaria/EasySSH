@@ -1,17 +1,40 @@
+import sys
+import shlex
+from pathlib import PurePath
+
 from config import *
 from identity import Identity
 from server import Server, Cluster
 
 
+def _quote(
+        path: str | PurePath
+) -> str:
+    text = str(path)
+    if sys.platform == "win32":
+        return f'"{text}"' if any(c.isspace() for c in text) else text
+    return shlex.quote(text)
+
+
+def _remote(
+        path: str | PurePath
+) -> str:
+    text = str(path)
+    if any(c.isspace() for c in text):
+        return f'"{text}"'
+    return text
+
+
 def generate_jump(
         username: str,
         server: Server,
-        cluster: Cluster
+        cluster: Cluster,
+        max_jumps: int = 4,
 ) -> str:
     flag = "-J "
-    max_depth, depth = 4, 0
+    depth = 0
     while server.connect_through != ("", ""):
-        if max_depth < depth:
+        if max_jumps < depth:
             raise RecursionError("Too many jump connections.")
         depth += 1
         server = cluster[server.connect_through]
@@ -47,7 +70,7 @@ def generate_ssh(
     if identity is not None:
         if not isinstance(identity, Identity):
             return "Error during adding identity: Must be Identity object!"
-        options.append(f"-i {identity.private_key}")
+        options.append(f"-i {_quote(identity.private_key)}")
     # ProxyJump
     if server.connect_through != ("", ""):
         if cluster is None or not isinstance(cluster, Cluster):
@@ -84,13 +107,14 @@ def generate_ssh(
         options.append('-' + 'v'*verbose)
 
     # Generate command
-    return "ssh " + ' '.join(options) + f" {username}{server.hostname}"
+    parts = ["ssh", *options, f"{username}{server.hostname}"]
+    return ' '.join(parts)
 
 
 def generate_scp(
         server: Server,
-        sources: Path | list[Path],
-        destination: Path,
+        sources: Path | PurePath | list[Path | PurePath],
+        destination: Path | PurePath,
         download: bool = False,
         cluster: Cluster| None = None,
         identity: Identity | None = None,
@@ -106,13 +130,23 @@ def generate_scp(
         username = USERNAME
     if username != "":
         username += '@'
-    if isinstance(sources, Path):
+    # Accept Path, PurePosixPath (= PurePath) or a list of either
+    if isinstance(sources, PurePath):
         sources = [sources]
+    sources = list(sources)
+    if not sources:
+        raise ValueError("At least one source is required.")
+    dest_text = str(destination).strip()
+    if dest_text in ("", "."):
+        raise ValueError("A destination is required.")
+    # Choose file transfer direction
     if download:
-        sources =  f" {username}{server.hostname}:".join([str(src) for src in sources])
+        remote = f"{username}{server.hostname}:"
+        sources = ' '.join(f"{remote}{_remote(src)}" for src in sources)
+        target = _quote(destination)
     else:
-        sources = ' '.join([str(src) for src in sources])
-        destination = f" {username}{server.hostname}:{destination}"
+        sources = ' '.join(_quote(src) for src in sources)
+        target = f"{username}{server.hostname}:{_remote(destination)}"
 
     # Populate options
     options = []
@@ -123,7 +157,7 @@ def generate_scp(
     if identity is not None:
         if not isinstance(identity, Identity):
             return "Error during adding identity: Must be Identity object!"
-        options.append(f"-i {identity.private_key}")
+        options.append(f"-i {_quote(identity.private_key)}")
     # ProxyJump
     if server.connect_through != ("", ""):
         if cluster is None or not isinstance(cluster, Cluster):
@@ -148,4 +182,5 @@ def generate_scp(
         options.append("-p")
 
     # Generate command
-    return "scp " + ' '.join(options) + " " + sources + destination
+    parts = ["scp", *options, sources, target]
+    return ' '.join(parts)
