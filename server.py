@@ -61,10 +61,10 @@ def get_server(
         servers[server["id"]] = Server(
             category_id=server_content["id"],
             server_id=server["id"],
-            name=server["name"],
+            name=server.get("name", "Unknown server"),
             hostname=f"{server['hostname']}.{cluster_hostname}" if cluster_hostname != "" else server["hostname"],
-            port=server["port"],
-            description=server["description"],
+            port=server.get("port", 22),
+            description=server.get("description", ""),
             connect_through=connect_through,
         )
     return servers
@@ -136,11 +136,11 @@ def get_categories(
             connect_through = ("", "")
         categories[cat["id"]] = Category(
             id=cat["id"],
-            name=cat["name"],
-            description=cat["description"],
+            name=cat.get("name", "Unknown category"),
+            description=cat.get("description", ""),
             connect_through=connect_through,
             file_path=file,
-            cluster_hostname=cluster_hostname if cat["subdomain"] else "",
+            cluster_hostname=cluster_hostname if cat.get("subdomain", False) else "",
         )
     return categories
 
@@ -192,11 +192,6 @@ class Cluster:
         # Just get the category
         return self.categories[category_id]
 
-    def read_manifest(
-            manifest: Path
-        ) -> Cluster:
-            pass
-
 
 def get_policy(
         policy_content: dict,
@@ -228,16 +223,16 @@ def get_clusters(
             except Exception as err:
                 print(f"Encountered error {err} while reading {path}, skipping...")
             # Extract information
-            key_policy, preferred_policy = get_policy(content["ssh_key_policy"])
+            key_policy, preferred_policy = get_policy(content.get("ssh_key_policy"))
             categories: list[Category] = get_categories(path.parent, 
-                                                        content["hostname"], 
-                                                        content["categories"])
+                                                        content.get("hostname", ""), 
+                                                        content.get("categories"))
             # Generate cluster
             clusters.append(Cluster(
                 id=content["id"],
-                name=content["name"],
-                hostname=content["hostname"],
-                description=content["description"],
+                name=content.get("name", "Unknown cluster"),
+                hostname=content.get("hostname", ""),
+                description=content.get("description", ""),
                 key_policy=key_policy,
                 preferred_policy=preferred_policy,
                 categories=categories,

@@ -79,7 +79,7 @@ class Identity:
             name: str,
             identities_dir: Path,
             key_type: KeyType = KeyType.ED25519,
-        ) -> Identity:
+        ):
         # Verify
         if key_type == KeyType.DSA:
             raise ValueError("DSA key generation is not supported by current OpenSSH.")
