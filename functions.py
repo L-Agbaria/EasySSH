@@ -53,6 +53,7 @@ def generate_ssh(
         no_shell: bool = False,
         trusted_graphical: bool = False,
         graphical: bool = False,
+        remote_command: str | None = None,
         compress: bool = False,
         quiet: bool = False,
         verbose: int = 0,
@@ -102,6 +103,15 @@ def generate_ssh(
     # Secure X11 graphical
     if graphical and not trusted_graphical:
         options.append("-X")
+    # Remote command text (multiple lines are joined with "; ")
+    command_text = ""
+    if remote_command is not None:
+        lines = [ln.strip() for ln in remote_command.splitlines() if ln.strip()]
+        command_text = "; ".join(lines)
+    # Pseudo-terminal so interactive remote commands (htop, vim...) work.
+    # Skipped with -n, as stdin is /dev/null then.
+    if command_text and not no_shell:
+        options.append("-t")
     # Gzip compression for low-bandwith
     if compress:
         options.append("-C")
@@ -116,6 +126,9 @@ def generate_ssh(
 
     # Generate command
     parts = ["ssh", *options, f"{username}{server.hostname}"]
+    # Remote command, quoted so the local shell passes it on untouched
+    if command_text:
+        parts.append(_quote(command_text))
     return ' '.join(parts)
 
 

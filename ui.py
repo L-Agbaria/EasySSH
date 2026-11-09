@@ -298,6 +298,16 @@ class App(tk.Tk):
                 ttk.Label(ssh, text=lbl).grid(row=r, column=0, sticky="w", padx=(0, 8), pady=2)
                 ttk.Entry(ssh, textvariable=var, width=10).grid(row=r, column=1, sticky="w", pady=2)
             r += 1
+
+        # Remote command box
+        ttk.Label(ssh, text="Remote command (optional):", font=("TkDefaultFont", 9, "bold")).grid(
+            row=0, column=2, sticky="w", padx=(16, 0), pady=(6, 2))
+        self.remote_cmd = tk.Text(ssh, width=30, height=4, wrap="word",
+                                  font=("TkFixedFont", 10))
+        self.remote_cmd.grid(row=1, column=2, rowspan=r - 1, sticky="nsew",
+                             padx=(16, 0), pady=2)
+        ssh.columnconfigure(2, weight=1)
+
         # Check boxes
         ttk.Label(ssh, text="Interface options:", font=("TkDefaultFont", 9, "bold")).grid(
             row=r, column=0, columnspan=2, sticky="w", pady=(6, 2))
@@ -644,6 +654,7 @@ class App(tk.Tk):
                     no_shell=self.no_shell.get(),
                     trusted_graphical=self.trusted_graphical.get(),
                     graphical=self.graphical.get(),
+                    remote_command=self.remote_cmd.get("1.0", "end").strip(),
                 )
             else:
                 download = self.direction.get() == "download"
