@@ -51,6 +51,7 @@ def generate_ssh(
         remote_forwarding: tuple | None = None,
         dynamic_forwarding: int | None = None,
         no_shell: bool = False,
+        trusted_graphical: bool = False,
         graphical: bool = False,
         compress: bool = False,
         quiet: bool = False,
@@ -95,8 +96,11 @@ def generate_ssh(
     # No shell
     if no_shell:
         options.append("-n")
-    # X11 graphical
-    if graphical:
+    # Trusted X11 graphical
+    if trusted_graphical:
+        options.append("-Y")
+    # Secure X11 graphical
+    if graphical and not trusted_graphical:
         options.append("-X")
     # Gzip compression for low-bandwith
     if compress:

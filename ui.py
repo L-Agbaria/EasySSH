@@ -278,6 +278,7 @@ class App(tk.Tk):
         self.dyn = tk.StringVar()
         self.no_shell = tk.BooleanVar()
         self.graphical = tk.BooleanVar()
+        self.trusted_graphical = tk.BooleanVar()
         r = 0
         for item in [
             "Run task on server, access locally (local forward):",
@@ -297,10 +298,16 @@ class App(tk.Tk):
                 ttk.Label(ssh, text=lbl).grid(row=r, column=0, sticky="w", padx=(0, 8), pady=2)
                 ttk.Entry(ssh, textvariable=var, width=10).grid(row=r, column=1, sticky="w", pady=2)
             r += 1
+        # Check boxes
+        ttk.Label(ssh, text="Interface options:", font=("TkDefaultFont", 9, "bold")).grid(
+            row=r, column=0, columnspan=2, sticky="w", pady=(6, 2))
+        r += 1
         # For no-shell
-        ttk.Checkbutton(ssh, text="No shell (-n)", variable=self.no_shell).grid(row=r, column=1, sticky="w", pady=2)
+        ttk.Checkbutton(ssh, text="No shell (-n)", variable=self.no_shell).grid(row=r, column=0, sticky="w", pady=2)
         # For graphical
-        ttk.Checkbutton(ssh, text="GUI (-X)", variable=self.graphical).grid(row=r, column=2, sticky="w", pady=2)
+        ttk.Checkbutton(ssh, text="GUI (-X)\t", variable=self.graphical).grid(row=r, column=1, sticky="w", pady=2)
+        # For trusted graphical
+        ttk.Checkbutton(ssh, text="Trusted GUI (-Y)", variable=self.trusted_graphical).grid(row=r, column=2, sticky="w", pady=2)
 
 
         # SCP tab
@@ -635,6 +642,7 @@ class App(tk.Tk):
                     remote_forwarding=rf if rf[0] is not None else None,
                     dynamic_forwarding=self._port(self.dyn.get(), "Dynamic forward"),
                     no_shell=self.no_shell.get(),
+                    trusted_graphical=self.trusted_graphical.get(),
                     graphical=self.graphical.get(),
                 )
             else:
