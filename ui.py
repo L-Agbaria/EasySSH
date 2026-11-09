@@ -277,6 +277,7 @@ class App(tk.Tk):
         self.rf_local = tk.StringVar(); self.rf_remote = tk.StringVar()
         self.dyn = tk.StringVar()
         self.no_shell = tk.BooleanVar()
+        self.graphical = tk.BooleanVar()
         r = 0
         for item in [
             "Run task on server, access locally (local forward):",
@@ -298,6 +299,8 @@ class App(tk.Tk):
             r += 1
         # For no-shell
         ttk.Checkbutton(ssh, text="No shell (-n)", variable=self.no_shell).grid(row=r, column=1, sticky="w", pady=2)
+        # For graphical
+        ttk.Checkbutton(ssh, text="GUI (-X)", variable=self.graphical).grid(row=r, column=2, sticky="w", pady=2)
 
 
         # SCP tab
@@ -632,6 +635,7 @@ class App(tk.Tk):
                     remote_forwarding=rf if rf[0] is not None else None,
                     dynamic_forwarding=self._port(self.dyn.get(), "Dynamic forward"),
                     no_shell=self.no_shell.get(),
+                    graphical=self.graphical.get(),
                 )
             else:
                 download = self.direction.get() == "download"
