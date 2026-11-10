@@ -8,7 +8,8 @@ from tkinter import ttk, messagebox, filedialog, simpledialog
 from config import *
 from identity import Identity, KeyType
 from server import Server, get_clusters
-from functions import generate_ssh, generate_scp
+from functions import (describe_key_policy, generate_ssh, generate_scp, 
+                       generate_config, generate_cluster_config)
 
 
 def _keygen_pub(path: Path, passphrase: str) -> str | None:
@@ -279,6 +280,8 @@ class App(tk.Tk):
         self.no_shell = tk.BooleanVar()
         self.graphical = tk.BooleanVar()
         self.trusted_graphical = tk.BooleanVar()
+        self.tunnel = tk.BooleanVar()
+
         r = 0
         for item in [
             "Run task on server, access locally (local forward):",
@@ -318,6 +321,8 @@ class App(tk.Tk):
         ttk.Checkbutton(ssh, text="GUI (-X)\t", variable=self.graphical).grid(row=r, column=1, sticky="w", pady=2)
         # For trusted graphical
         ttk.Checkbutton(ssh, text="Trusted GUI (-Y)", variable=self.trusted_graphical).grid(row=r, column=2, sticky="w", pady=2)
+        # For tunnel
+        ttk.Checkbutton(ssh, text="Tunnel (-T)", variable=self.tunnel).grid(row=r, column=3, sticky="w", pady=2)
 
 
         # SCP tab
@@ -364,11 +369,74 @@ class App(tk.Tk):
         scp.columnconfigure(1, weight=1)
         self.on_direction()  # set up labels and buttons for first direction
 
+        # SSH config tab
+        cfg = ttk.Frame(self.mode, padding=6)
+        self.mode.add(cfg, text="Config setup")
+        self.alias = tk.StringVar()
+        self.cfg_lf_local = tk.StringVar(); self.cfg_lf_remote = tk.StringVar()
+        self.cfg_rf_local = tk.StringVar(); self.cfg_rf_remote = tk.StringVar()
+        self.cfg_dyn = tk.StringVar()
+        self.cfg_graphical = tk.BooleanVar()
+        self.cfg_trusted_graphical = tk.BooleanVar()
+        self.cfg_whole_cluster = tk.BooleanVar()
+
+        ttk.Label(cfg, text="Alias (blank = auto)").grid(
+            row=0, column=0, sticky="w", padx=(0, 8), pady=2)
+        self.alias_entry = ttk.Entry(cfg, textvariable=self.alias, width=30)
+        self.alias_entry.grid(row=0, column=1, sticky="ew", pady=2)
+        ttk.Checkbutton(cfg, text="Whole cluster", variable=self.cfg_whole_cluster,
+                        command=self._toggle_alias).grid(
+            row=0, column=2, sticky="w", padx=12)
+
+        cr = 1
+        for item in [
+            "Local port forwarding (run on server, reach from PC):",
+            ("Your port", self.cfg_lf_local),
+            ("Server port", self.cfg_lf_remote),
+            "Remote port forwarding (run on PC, reach from server):",
+            ("Your port", self.cfg_rf_local),
+            ("Server port", self.cfg_rf_remote),
+            "Dynamic port forwarding (SOCKS proxy):",
+            ("Port", self.cfg_dyn),
+        ]:
+            if isinstance(item, str):
+                ttk.Label(cfg, text=item, font=("TkDefaultFont", 9, "bold")).grid(
+                    row=cr, column=0, columnspan=2, sticky="w", pady=(6, 2))
+            else:
+                lbl, var = item
+                ttk.Label(cfg, text=lbl).grid(row=cr, column=0, sticky="w",
+                                              padx=(0, 8), pady=2)
+                ttk.Entry(cfg, textvariable=var, width=10).grid(
+                    row=cr, column=1, sticky="w", pady=2)
+            cr += 1
+
+        ttk.Label(cfg, text="Interface options:", font=("TkDefaultFont", 9, "bold")).grid(
+            row=cr, column=0, columnspan=2, sticky="w", pady=(6, 2))
+        cr += 1
+        cfgopt = ttk.Frame(cfg)
+        cfgopt.grid(row=cr, column=0, columnspan=3, sticky="w")
+        ttk.Checkbutton(cfgopt, text="GUI (-X)", variable=self.cfg_graphical).pack(
+            side="left", padx=8)
+        ttk.Checkbutton(cfgopt, text="Trusted GUI (-Y)",
+                        variable=self.cfg_trusted_graphical).pack(side="left")
+
+        ttk.Label(cfg, text="(Verbose level is ignored in config output.)",
+                  foreground="#888", font=("TkDefaultFont", 8, "italic")).grid(
+            row=cr + 1, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        cfg.columnconfigure(1, weight=1)
+
         # output
         out = ttk.LabelFrame(conn, text="Command", padding=6)
         out.pack(fill="x", pady=6)
-        self.output = tk.Text(out, height=2, wrap="word", font=("TkFixedFont", 10))
-        self.output.pack(fill="x")
+        out_box = ttk.Frame(out)
+        out_box.pack(fill="x")
+        out_sb = ttk.Scrollbar(out_box)
+        out_sb.pack(side="right", fill="y")
+        self.output = tk.Text(out_box, height=4, wrap="word",
+                              font=("TkFixedFont", 10),
+                              yscrollcommand=out_sb.set)
+        out_sb.configure(command=self.output.yview)
+        self.output.pack(side="left", fill="both", expand=True)
         bar = ttk.Frame(out)
         bar.pack(fill="x", pady=(6, 0))
         ttk.Button(bar, text="Generate", command=self.generate).pack(side="left")
@@ -421,6 +489,10 @@ class App(tk.Tk):
     def _row(self, parent, row, label, widget):
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=2)
         widget.grid(row=row, column=1, sticky="ew", pady=2)
+
+    def _toggle_alias(self):
+        self.alias_entry.config(
+            state="disabled" if self.cfg_whole_cluster.get() else "normal")
 
     def reload(self):  # Extract data
         self.clusters, self.keys, self.tutorial_files = [], [], []
@@ -513,6 +585,7 @@ class App(tk.Tk):
                 ("Cluster", self.cur_cluster.name, self.cur_cluster.description),
                 ("Category", cat.name if cat else s.category_id, cat.description if cat else ""),
                 ("Server", s.name, s.description),
+                ("Key policy", self.cur_cluster.name, describe_key_policy(self.cur_cluster)),
             ])
             self.generate()
 
@@ -637,7 +710,8 @@ class App(tk.Tk):
                 quiet=self.quiet.get(),
                 verbose=int(self.verbose.get() or 0),
             )
-            if self.mode.index(self.mode.select()) == 0:
+            idx = self.mode.index(self.mode.select())
+            if idx == 0:
                 lf = (self._port(self.lf_local.get(), "Local forward (your port)"),
                       self._port(self.lf_remote.get(), "Local forward (server port)"))
                 rf = (self._port(self.rf_local.get(), "Remote forward (your port)"),
@@ -655,15 +729,14 @@ class App(tk.Tk):
                     trusted_graphical=self.trusted_graphical.get(),
                     graphical=self.graphical.get(),
                     remote_command=self.remote_cmd.get("1.0", "end").strip(),
+                    tunnel=self.tunnel.get(),
                 )
-            else:
+            elif idx == 1:
                 download = self.direction.get() == "download"
                 raw = self.src_lists[self.direction.get()]
                 if not raw:
                     raise ValueError("Add at least one server path" if download
                                      else "Add at least one source")
-                # Server paths always use "/", so never run them through Path
-                # (on Windows Path would turn them into backslashes).
                 dest_text = self.dest_vars[self.direction.get()].get().strip()
                 if download:
                     srcs = [PurePosixPath(s) for s in raw]
@@ -681,6 +754,36 @@ class App(tk.Tk):
                     directory=self.recursive.get(),
                     preserve_metadata=self.preserve.get(),
                 )
+            else:
+                # SSH config
+                lf = (self._port(self.cfg_lf_local.get(), "Local forward (your port)"),
+                      self._port(self.cfg_lf_remote.get(), "Local forward (server port)"))
+                rf = (self._port(self.cfg_rf_local.get(), "Remote forward (your port)"),
+                      self._port(self.cfg_rf_remote.get(), "Remote forward (server port)"))
+                if (lf[0] is None) != (lf[1] is None):
+                    raise ValueError("Local forward: fill both ports or none")
+                if (rf[0] is None) != (rf[1] is None):
+                    raise ValueError("Remote forward: fill both ports or none")
+                cfg_opts = dict(
+                    identity=self._identity(),
+                    username=self.user_var.get(),
+                    local_forwarding=lf if lf[0] is not None else None,
+                    remote_forwarding=rf if rf[0] is not None else None,
+                    dynamic_forwarding=self._port(self.cfg_dyn.get(), "Dynamic forward"),
+                    trusted_graphical=self.cfg_trusted_graphical.get(),
+                    graphical=self.cfg_graphical.get(),
+                    compress=self.compress.get(),
+                    quiet=self.quiet.get(),
+                )
+                if self.cfg_whole_cluster.get():
+                    cmd = generate_cluster_config(cluster=self.cur_cluster, **cfg_opts)
+                else:
+                    cmd = generate_config(
+                        server=self.cur_server,
+                        cluster=self.cur_cluster,
+                        alias=self.alias.get().strip() or None,
+                        **cfg_opts,
+                    )
         except Exception as err:
             self._show(f"Error: {err}")
             return
@@ -737,8 +840,14 @@ class App(tk.Tk):
             return
         name = name.strip()
         types = [t for t in KeyType if t not in (KeyType.DSA, KeyType.UNKNOWN)]
+
+        # Default to the key type the selected cluster prefers
+        default = "ed25519"
+        cl = self.cur_cluster
+        if cl is not None and cl.preferred_policy in types:
+            default = cl.preferred_policy.value
         kt = simpledialog.askstring("Key type", f"Type ({', '.join(t.value for t in types)}):",
-                                    initialvalue="ed25519", parent=self)
+                                    initialvalue=default, parent=self)
         if not kt:
             return
         try:
@@ -746,6 +855,16 @@ class App(tk.Tk):
         except ValueError:
             messagebox.showerror("Error", "Unknown key type.", parent=self)
             return
+        
+        # Warn when the selected cluster would reject this key type
+        if cl is not None and cl.key_policy and key_type not in cl.key_policy:
+            if not messagebox.askyesno(
+                    "Key policy",
+                    f"Cluster '{cl.name}' only allows: "
+                    f"{', '.join(k.value for k in cl.key_policy)}.\n"
+                    "This key could not be used there. Create anyway?", parent=self):
+                return
+            
         # CREATE -> password (empty = no password)
         pw = self._ask_password("New password", "Password for new key (empty = none):")
         if pw is None:
@@ -797,4 +916,3 @@ class App(tk.Tk):
 
 if __name__ == "__main__":
     App().mainloop()
-    
