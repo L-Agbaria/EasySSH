@@ -174,8 +174,7 @@ class Cluster:
                f"Hostname: {self.hostname}\n" \
                f"Description: {self.description}\n" \
                f"Categories:\n" \
-               f"{''.join(f'\t{cat_id}: {count} servers.\n' 
-                          for (cat_id, count) in category_items)}" \
+               f"{''.join(f'\t{cat_id}: {count} servers.\n' for (cat_id, count) in category_items)}" \
                f"{'='*32}"
     
     def __getitem__(
